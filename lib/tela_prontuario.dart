@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import 'database_helper.dart';
 import 'tela_cadastro_evolucao.dart';
 
+// Importações para o PDF
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
 class TelaProntuario extends StatefulWidget {
   final Map<String, dynamic> paciente;
   final bool isFinalizado;
@@ -49,6 +54,85 @@ class _TelaProntuarioState extends State<TelaProntuario> {
     }
   }
 
+  // Função para Gerar e Mostrar o PDF
+  Future<void> _gerarPdf() async {
+    if (_evolucoes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não há evoluções para gerar o PDF.')),
+      );
+      return;
+    }
+
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context context) {
+          return [
+            // Cabeçalho do PDF
+            pw.Header(
+              level: 0,
+              child: pw.Text(
+                'Prontuário de Fisioterapia',
+                style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+              ),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Text('Paciente: ${widget.paciente['nome']}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            if (widget.paciente['diagnostico'] != null && widget.paciente['diagnostico'].toString().isNotEmpty)
+              pw.Text('Diagnóstico Clínico: ${widget.paciente['diagnostico']}', style: const pw.TextStyle(fontSize: 14)),
+            if (widget.paciente['telefone'] != null && widget.paciente['telefone'].toString().isNotEmpty)
+              pw.Text('Contato: ${widget.paciente['telefone']}', style: const pw.TextStyle(fontSize: 14)),
+            
+            pw.SizedBox(height: 20),
+            pw.Divider(),
+            pw.SizedBox(height: 10),
+            pw.Text('Histórico de Evoluções', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 15),
+
+            // Lista de Evoluções no PDF
+            ..._evolucoes.map((evo) {
+              return pw.Container(
+                margin: const pw.EdgeInsets.only(bottom: 12),
+                padding: const pw.EdgeInsets.all(10),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey400),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Data da Sessão: ${evo['data_sessao']}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Nível de Dor: ${evo['nivel_dor']} / 10', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                      ],
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Text('Conduta: ${evo['conduta']}'),
+                    if (evo['observacoes'] != null && evo['observacoes'].toString().isNotEmpty) ...[
+                      pw.SizedBox(height: 4),
+                      pw.Text('Obs: ${evo['observacoes']}'),
+                    ]
+                  ],
+                ),
+              );
+            }),
+          ];
+        },
+      ),
+    );
+
+    // Abre a tela nativa de visualização e impressão
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Prontuario_${widget.paciente['nome'].replaceAll(' ', '_')}.pdf',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     bool temFoto = widget.paciente['foto'] != null && widget.paciente['foto'].toString().isNotEmpty;
@@ -58,6 +142,13 @@ class _TelaProntuarioState extends State<TelaProntuario> {
         title: Text('Prontuário - ${widget.paciente['nome']}'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'Exportar PDF',
+            onPressed: _gerarPdf,
+          ),
+        ],
       ),
       body: Column(
         children: [

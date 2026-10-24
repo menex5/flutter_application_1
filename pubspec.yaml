@@ -18,6 +18,8 @@ dependencies:
   intl: ^0.20.3
   url_launcher: ^6.3.3
   flutter_speed_dial: ^7.0.0
+  pdf: ^3.13.1
+  printing: ^5.15.1
 
 dev_dependencies:
   flutter_test:
