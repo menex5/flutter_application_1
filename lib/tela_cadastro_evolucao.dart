@@ -2,63 +2,97 @@ import 'package:flutter/material.dart';
 import 'database_helper.dart';
 
 class TelaCadastroEvolucao extends StatefulWidget {
-  final int pacienteId;
+  final Map<String, dynamic> paciente;
   final Map<String, dynamic>? evolucaoExistente;
 
-  const TelaCadastroEvolucao({super.key, required this.pacienteId, this.evolucaoExistente});
+  const TelaCadastroEvolucao({
+    super.key,
+    required this.paciente,
+    this.evolucaoExistente,
+  });
 
   @override
   State<TelaCadastroEvolucao> createState() => _TelaCadastroEvolucaoState();
 }
 
 class _TelaCadastroEvolucaoState extends State<TelaCadastroEvolucao> {
-  final _condutaController = TextEditingController();
-  final _observacoesController = TextEditingController();
-  double _nivelDor = 0; // Vai de 0 a 10
+  double _nivelDor = 5;
+  final TextEditingController _condutaController = TextEditingController();
+  final TextEditingController _observacoesController = TextEditingController();
+
+  // Modelos de conduta rápida
+  final List<String> _atendimentosRapidos = [
+    'Crioterapia',
+    'Ultrassom 3min',
+    'TENS / FES',
+    'Liberação Miofascial',
+    'Cinesioterapia',
+    'Mobilização Articular',
+    'Exercícios de Fortalecimento',
+    'Treino de Propriocepção',
+    'Alongamento Passivo',
+  ];
 
   @override
   void initState() {
     super.initState();
     if (widget.evolucaoExistente != null) {
+      _nivelDor = (widget.evolucaoExistente!['nivel_dor'] ?? 5).toDouble();
       _condutaController.text = widget.evolucaoExistente!['conduta'] ?? '';
       _observacoesController.text = widget.evolucaoExistente!['observacoes'] ?? '';
-      _nivelDor = (widget.evolucaoExistente!['nivel_dor'] ?? 0).toDouble();
     }
   }
 
-  void _salvarSessao() async {
+  void _adicionarCondutaRapida(String texto) {
     if (_condutaController.text.isEmpty) {
+      _condutaController.text = texto;
+    } else {
+      _condutaController.text += ', $texto';
+    }
+    _condutaController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _condutaController.text.length),
+    );
+  }
+
+  void _salvarEvolucao() async {
+    if (_condutaController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A conduta/tratamento é obrigatória!')),
+        const SnackBar(content: Text('Por favor, informe a conduta realizada.')),
       );
       return;
     }
 
-    final dadosSessao = {
-      'paciente_id': widget.pacienteId,
+    String dataAtual = DateTime.now().toString().split(' ')[0]; // yyyy-MM-dd
+
+    Map<String, dynamic> dadosEvolucao = {
+      'paciente_id': widget.paciente['id'],
+      'data_sessao': dataAtual,
       'nivel_dor': _nivelDor.toInt(),
-      'conduta': _condutaController.text,
-      'observacoes': _observacoesController.text,
+      'conduta': _condutaController.text.trim(),
+      'observacoes': _observacoesController.text.trim(),
     };
 
-    if (widget.evolucaoExistente == null) {
-      // Pega a data formatada
-      final agora = DateTime.now();
-      dadosSessao['data_sessao'] = "${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}";
-      
-      await DatabaseHelper.instance.inserirEvolucao(dadosSessao);
+    if (widget.evolucaoExistente != null) {
+      await DatabaseHelper.instance.atualizarEvolucao(
+        widget.evolucaoExistente!['id'],
+        dadosEvolucao,
+      );
     } else {
-      await DatabaseHelper.instance.atualizarEvolucao(widget.evolucaoExistente!['id'], dadosSessao);
+      await DatabaseHelper.instance.inserirEvolucao(dadosEvolucao);
     }
 
-    if (mounted) Navigator.pop(context, true); // Retorna 'true' para avisar que salvou
+    if (mounted) {
+      Navigator.pop(context, true);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isEdicao = widget.evolucaoExistente != null;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.evolucaoExistente == null ? 'Nova Sessão' : 'Editar Sessão'),
+        title: Text(isEdicao ? 'Editar Evolução' : 'Nova Evolução'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
@@ -67,72 +101,96 @@ class _TelaCadastroEvolucaoState extends State<TelaCadastroEvolucao> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Escala de Dor
-            const Text('Nível de Dor Hoje (0 a 10):', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
+            Text(
+              'Paciente: ${widget.paciente['nome']}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+
+            // Nível de Dor
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Icon(Icons.sentiment_very_satisfied, color: Colors.green),
-                Expanded(
-                  child: Slider(
-                    value: _nivelDor,
-                    min: 0,
-                    max: 10,
-                    divisions: 10,
-                    activeColor: _nivelDor > 7 ? Colors.red : (_nivelDor > 4 ? Colors.orange : Colors.green),
-                    label: _nivelDor.round().toString(),
-                    onChanged: (double valor) {
-                      setState(() {
-                        _nivelDor = valor;
-                      });
-                    },
+                const Text('Nível de Dor:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                Text(
+                  '${_nivelDor.toInt()} / 10',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: _nivelDor > 7
+                        ? Colors.red
+                        : (_nivelDor > 3 ? Colors.orange : Colors.green),
                   ),
                 ),
-                const Icon(Icons.sentiment_very_dissatisfied, color: Colors.red),
               ],
             ),
-            Center(
-              child: Text(
-                'Dor: ${_nivelDor.round()}',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _nivelDor > 7 ? Colors.red : Colors.black),
+            Slider(
+              value: _nivelDor,
+              min: 0,
+              max: 10,
+              divisions: 10,
+              label: _nivelDor.toInt().toString(),
+              activeColor: Theme.of(context).colorScheme.primary,
+              onChanged: (novoValor) {
+                setState(() => _nivelDor = novoValor);
+              },
+            ),
+            const SizedBox(height: 15),
+
+            // Condutas Rápidas (Chips)
+            const Text('Condutas Rápidas:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8.0,
+              runSpacing: 4.0,
+              children: _atendimentosRapidos.map((conduta) {
+                return ActionChip(
+                  label: Text(conduta),
+                  backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                  labelStyle: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w500),
+                  onPressed: () => _adicionarCondutaRapida(conduta),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 15),
+
+            // Campo de Conduta
+            TextField(
+              controller: _condutaController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Conduta Realizada *',
+                hintText: 'Descreva os exercícios e procedimentos realizados',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 15),
+
+            // Campo de Observações
+            TextField(
+              controller: _observacoesController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Observações (opcional)',
+                hintText: 'Ex: Paciente relatou melhora ao caminhar',
+                border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 25),
 
-            // Conduta
-            const Text('Conduta / Exercícios *', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _condutaController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'Ex: TENS lombar (20min), Alongamento de isquiotibiais, Fortalecimento de core...',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Observações
-            const Text('Observações / Relato do Paciente', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _observacoesController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Ex: Paciente relatou melhora na fisgada matinal. Sentiu fadiga no final.',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 30),
-
-            // Botão Salvar
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _salvarSessao,
-                style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
-                child: const Text('Salvar Prontuário', style: TextStyle(fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: _salvarEvolucao,
+                child: Text(
+                  isEdicao ? 'Salvar Alterações' : 'Cadastrar Evolução',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],

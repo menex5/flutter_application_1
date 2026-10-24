@@ -510,7 +510,7 @@ class _TelaAgendaState extends State<TelaAgenda> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: _corDoTipo(tipo).withOpacity(0.15),
+                                        color: _corDoTipo(tipo).withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(color: _corDoTipo(tipo), width: 1),
                                       ),
