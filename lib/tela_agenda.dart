@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'database_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'tela_prontuario.dart';
-import 'tela_cadastro_paciente.dart'; // Importe a sua tela de cadastro de paciente aqui
+import 'tela_cadastro_paciente.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 
 class TelaAgenda extends StatefulWidget {
@@ -96,6 +96,9 @@ class _TelaAgendaState extends State<TelaAgenda> {
     bool isBloqueio = false;
     String tipoSelecionado = 'Rotina';
     String tipoBloqueio = 'Almoço';
+    
+    // Passo 7: Controller para capturar a observação rápida
+    final TextEditingController observacaoController = TextEditingController();
 
     final tiposAtendimento = ['Avaliação', 'Retorno', 'Rotina', 'Emergência'];
     final tiposBloqueio = ['Almoço', 'Reunião', 'Folga', 'Bloqueio'];
@@ -200,6 +203,17 @@ class _TelaAgendaState extends State<TelaAgenda> {
                       ],
 
                       const SizedBox(height: 15),
+                      // Passo 7: Campo para digitar a observação rápida
+                      TextField(
+                        controller: observacaoController,
+                        decoration: const InputDecoration(
+                          labelText: 'Observação Rápida (opcional)',
+                          hintText: 'Ex: Trazer exames, Focar na dor lombar',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+
+                      const SizedBox(height: 15),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -233,8 +247,8 @@ class _TelaAgendaState extends State<TelaAgenda> {
                       final BuildContext dialogContext = context;
                       String horaStr = '${horarioSelecionado.hour.toString().padLeft(2, '0')}:${horarioSelecionado.minute.toString().padLeft(2, '0')}';
                       String dataStr = _formatarData(_dataSelecionada!);
+                      String obsStr = observacaoController.text.trim();
 
-                      // VERIFICAÇÃO DE CHOQUE DE HORÁRIOS
                       bool existeConflito = _agendamentos.any((a) => a['horario'] == horaStr);
 
                       if (existeConflito) {
@@ -266,6 +280,7 @@ class _TelaAgendaState extends State<TelaAgenda> {
                           'horario': horaStr,
                           'status': 'realizado',
                           'tipo_atendimento': tipoBloqueio,
+                          'observacao': obsStr.isNotEmpty ? obsStr : null,
                         };
 
                         await DatabaseHelper.instance.inserirAgendamento(dadosBloqueio);
@@ -286,6 +301,7 @@ class _TelaAgendaState extends State<TelaAgenda> {
                           'horario': horaStr,
                           'status': 'pendente',
                           'tipo_atendimento': tipoSelecionado,
+                          'observacao': obsStr.isNotEmpty ? obsStr : null,
                         });
                         
                         final pacienteAgendado = pacientesAtivos.firstWhere(
@@ -413,6 +429,7 @@ class _TelaAgendaState extends State<TelaAgenda> {
                       
                       final bool temFoto = !isBloqueio && agendamento['foto'] != null && agendamento['foto'].toString().isNotEmpty;
                       String tipo = agendamento['tipo_atendimento'] ?? (isBloqueio ? 'Bloqueio' : 'Rotina');
+                      String? observacao = agendamento['observacao'];
                       Color corStatus = agendamento['status'] == 'realizado' ? Colors.green : Colors.orange;
 
                       String nomePaciente = agendamento['nome'] ?? '';
@@ -488,22 +505,34 @@ class _TelaAgendaState extends State<TelaAgenda> {
                               children: [
                                 if (!isBloqueio) Text(agendamento['diagnostico'] ?? ''),
                                 const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: _corDoTipo(tipo).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: _corDoTipo(tipo), width: 1),
-                                  ),
-                                  child: Text(
-                                    tipo,
-                                    style: TextStyle(
-                                      color: _corDoTipo(tipo),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _corDoTipo(tipo).withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: _corDoTipo(tipo), width: 1),
+                                      ),
+                                      child: Text(
+                                        tipo,
+                                        style: TextStyle(
+                                          color: _corDoTipo(tipo),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
+                                // Passo 7: Exibição da Observação Rápida no Card
+                                if (observacao != null && observacao.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Obs: $observacao',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontStyle: FontStyle.italic),
+                                  ),
+                                ]
                               ],
                             ),
                             trailing: isBloqueio
