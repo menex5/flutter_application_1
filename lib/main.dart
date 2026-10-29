@@ -4,6 +4,7 @@ import 'database_helper.dart';
 import 'tela_prontuario.dart';
 import 'tela_cadastro_paciente.dart';
 import 'tela_agenda.dart';
+import 'tela_perfil_paciente.dart';
 
 void main() {
   runApp(const FisioApp());
@@ -15,7 +16,7 @@ class FisioApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fisio App',
+      title: 'Fisiohub',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
@@ -211,9 +212,11 @@ class _TelaPacientesState extends State<TelaPacientes> {
                 ],
               ),
               onTap: () {
+                // AQUI ESTÁ A MUDANÇA MÁGICA:
+                // Agora abre a TelaPerfilPaciente que tem o botão da câmara!
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => TelaProntuario(paciente: paciente, isFinalizado: isFinalizado)),
+                  MaterialPageRoute(builder: (context) => TelaPerfilPaciente(paciente: paciente)),
                 ).then((_) => _atualizarLista());
               },
             ),

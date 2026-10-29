@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'database_helper.dart';
-import 'tela_agenda.dart';
 import 'tela_cadastro_paciente.dart';
+import 'tela_lista_pacientes.dart';
 // Caso a sua tela de lista de pacientes tenha outro nome, ajuste o import abaixo:
 // import 'tela_lista_pacientes.dart'; 
 
@@ -55,7 +55,7 @@ class _TelaDashboardState extends State<TelaDashboard> {
           child: Column(
             children: [
               CircleAvatar(
-                backgroundColor: cor.withOpacity(0.2),
+                backgroundColor: cor.withValues(alpha: 0.2),
                 radius: 25,
                 child: Icon(icone, color: cor, size: 28),
               ),
@@ -135,26 +135,6 @@ class _TelaDashboardState extends State<TelaDashboard> {
                       tileColor: Colors.white,
                       leading: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.teal.shade100, shape: BoxShape.circle),
-                        child: const Icon(Icons.calendar_month, color: Colors.teal),
-                      ),
-                      title: const Text('Minha Agenda', style: TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: const Text('Gerenciar horários e consultas'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const TelaAgenda()),
-                        );
-                        _carregarEstatisticas(); // Atualiza os números ao voltar
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    ListTile(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      tileColor: Colors.white,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(color: Colors.orange.shade100, shape: BoxShape.circle),
                         child: const Icon(Icons.person_add, color: Colors.orange),
                       ),
@@ -169,7 +149,32 @@ class _TelaDashboardState extends State<TelaDashboard> {
                         _carregarEstatisticas();
                       },
                     ),
-                  ],
+                    
+                    // ==========================================
+                    // ---> COLE O NOVO BOTÃO EXATAMENTE AQUI <---
+                    // ==========================================
+                    const SizedBox(height: 12),
+                    ListTile(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      tileColor: Colors.white,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.blue.shade100, shape: BoxShape.circle),
+                        child: const Icon(Icons.people, color: Colors.blue),
+                      ),
+                      title: const Text('Meus Pacientes', style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: const Text('Ver lista, perfis e exames'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const TelaListaPacientes()),
+                        );
+                      },
+                    ),
+                    // ==========================================
+                    
+                  ], // <-- Fim da lista de botões (children)
                 ),
               ),
             ),
