@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'database_helper.dart';
-import 'tela_agenda.dart';
 import 'tela_cadastro_paciente.dart';
-// Caso a sua tela de lista de pacientes tenha outro nome, ajuste o import abaixo:
-// import 'tela_lista_pacientes.dart'; 
+import 'tela_lista_pacientes.dart';
+// Importa o ecrã de evolução para o botão "Iniciar Atendimento" funcionar
+import 'tela_cadastro_evolucao.dart'; 
 
 class TelaDashboard extends StatefulWidget {
   const TelaDashboard({super.key});
@@ -16,6 +16,7 @@ class TelaDashboard extends StatefulWidget {
 class _TelaDashboardState extends State<TelaDashboard> {
   int _totalPacientesAtivos = 0;
   int _atendimentosHoje = 0;
+  List<Map<String, dynamic>> _listaAgendamentosHoje = [];
   bool _carregando = true;
 
   @override
@@ -31,16 +32,18 @@ class _TelaDashboardState extends State<TelaDashboard> {
     final pacientes = await DatabaseHelper.instance.getTodosPacientes();
     final ativos = pacientes.where((p) => p['status'] == 'tratando').length;
 
-    // Buscar Agendamentos de Hoje
+    // Buscar Agendamentos de Hoje (verifica se o formato de data bate com o gravado no DB)
+    // Se gravaste como yyyy-MM-dd no agendamento, altera aqui para: DateTime.now().toString().split(' ')[0]
     String dataHoje = DateFormat('dd/MM/yyyy').format(DateTime.now());
     final agendamentos = await DatabaseHelper.instance.getAgendamentosPorData(dataHoje);
     
-    // Filtra apenas os agendamentos reais (ignora bloqueios sem paciente, se preferir)
-    final reaisHoje = agendamentos.where((a) => a['paciente_id'] != null).length;
+    // Filtra apenas os agendamentos reais (ignora bloqueios sem paciente)
+    final reaisHoje = agendamentos.where((a) => a['paciente_id'] != null).toList();
 
     setState(() {
       _totalPacientesAtivos = ativos;
-      _atendimentosHoje = reaisHoje;
+      _atendimentosHoje = reaisHoje.length;
+      _listaAgendamentosHoje = reaisHoje; // Guardamos a lista para mostrar no ecrã
       _carregando = false;
     });
   }
@@ -55,7 +58,7 @@ class _TelaDashboardState extends State<TelaDashboard> {
           child: Column(
             children: [
               CircleAvatar(
-                backgroundColor: cor.withOpacity(0.2),
+                backgroundColor: cor.withValues(alpha: 0.2),
                 radius: 25,
                 child: Icon(icone, color: cor, size: 28),
               ),
@@ -74,6 +77,134 @@ class _TelaDashboardState extends State<TelaDashboard> {
           ),
         ),
       ),
+    );
+  }
+
+  // Novo método para construir a lista de consultas
+  Widget _construirAgendaDoDia() {
+    if (_listaAgendamentosHoje.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: const Column(
+          children: [
+            Icon(Icons.event_busy, size: 48, color: Colors.grey),
+            SizedBox(height: 12),
+            Text(
+              'Sem pacientes agendados para hoje.',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(), // O scroll é gerido pelo SingleChildScrollView principal
+      itemCount: _listaAgendamentosHoje.length,
+      itemBuilder: (context, index) {
+        final agendamento = _listaAgendamentosHoje[index];
+        final bool atendido = agendamento['status'] == 'concluido';
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: atendido ? Colors.green.shade300 : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          elevation: 2,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time, size: 18, color: Colors.blue),
+                        const SizedBox(width: 6),
+                        Text(
+                          agendamento['horario'] ?? '--:--',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    if (atendido)
+                      const Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green, size: 16),
+                          SizedBox(width: 4),
+                          Text('Concluído', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                        ],
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('Pendente', style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
+                      )
+                  ],
+                ),
+                const Divider(),
+                Text(
+                  agendamento['nome'] ?? 'Paciente',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Diagnóstico: ${agendamento['diagnostico'] ?? 'Não informado'}',
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+                ),
+                if (!atendido) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: const Icon(Icons.play_arrow, size: 20),
+                      label: const Text('Iniciar Atendimento', style: TextStyle(fontSize: 15)),
+                      onPressed: () async {
+                        // Navega para a evolução e atualiza a lista ao voltar
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TelaCadastroEvolucao(
+                              paciente: {
+                                'id': agendamento['paciente_id'],
+                                'nome': agendamento['nome'],
+                                'diagnostico': agendamento['diagnostico'],
+                              },
+                            ),
+                          ),
+                        );
+                        _carregarEstatisticas();
+                      },
+                    ),
+                  )
+                ]
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -135,26 +266,6 @@ class _TelaDashboardState extends State<TelaDashboard> {
                       tileColor: Colors.white,
                       leading: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.teal.shade100, shape: BoxShape.circle),
-                        child: const Icon(Icons.calendar_month, color: Colors.teal),
-                      ),
-                      title: const Text('Minha Agenda', style: TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: const Text('Gerenciar horários e consultas'),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const TelaAgenda()),
-                        );
-                        _carregarEstatisticas(); // Atualiza os números ao voltar
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    ListTile(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      tileColor: Colors.white,
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(color: Colors.orange.shade100, shape: BoxShape.circle),
                         child: const Icon(Icons.person_add, color: Colors.orange),
                       ),
@@ -169,6 +280,40 @@ class _TelaDashboardState extends State<TelaDashboard> {
                         _carregarEstatisticas();
                       },
                     ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      tileColor: Colors.white,
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.blue.shade100, shape: BoxShape.circle),
+                        child: const Icon(Icons.people, color: Colors.blue),
+                      ),
+                      title: const Text('Meus Pacientes', style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: const Text('Ver lista, perfis e exames'),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const TelaListaPacientes()),
+                        );
+                      },
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // ==========================================
+                    // NOVO BLOCO: AGENDA DE HOJE
+                    // ==========================================
+                    const Text(
+                      'Agenda de Hoje',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    _construirAgendaDoDia(),
+                    // ==========================================
+                    
+                    const SizedBox(height: 30), // Espaço no final
                   ],
                 ),
               ),

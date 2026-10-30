@@ -3,7 +3,7 @@ import 'package:path/path.dart';
 
 class DatabaseHelper {
   static const _databaseName = 'fisio_app.db';
-  static const _databaseVersion = 9;
+  static const _databaseVersion = 10; // Atualizado para 10
 
   DatabaseHelper._privateConstructor();
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
@@ -62,6 +62,18 @@ class DatabaseHelper {
         status TEXT NOT NULL DEFAULT 'pendente',
         tipo_atendimento TEXT,
         observacao TEXT,
+        FOREIGN KEY (paciente_id) REFERENCES pacientes (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Tabela nova de Exames
+    await db.execute('''
+      CREATE TABLE exames (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        paciente_id INTEGER,
+        titulo TEXT,
+        caminho_imagem TEXT,
+        data_upload TEXT,
         FOREIGN KEY (paciente_id) REFERENCES pacientes (id) ON DELETE CASCADE
       )
     ''');
@@ -128,6 +140,20 @@ class DatabaseHelper {
 
       await db.execute('DROP TABLE agendamentos');
       await db.execute('ALTER TABLE agendamentos_novo RENAME TO agendamentos');
+    }
+
+    // Cria a tabela de exames se a versão for menor que 10
+    if (oldVersion < 10) {
+      await db.execute('''
+        CREATE TABLE exames (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          paciente_id INTEGER,
+          titulo TEXT,
+          caminho_imagem TEXT,
+          data_upload TEXT,
+          FOREIGN KEY (paciente_id) REFERENCES pacientes (id) ON DELETE CASCADE
+        )
+      ''');
     }
   }
 
@@ -196,7 +222,6 @@ class DatabaseHelper {
     return db.insert('agendamentos', agendamento);
   }
 
-  // Usa LEFT JOIN para retornar agendamentos com ou sem paciente (bloqueios)
   Future<List<Map<String, dynamic>>> getAgendamentosPorData(String data) async {
     final db = await instance.database;
     return db.rawQuery(
@@ -235,5 +260,30 @@ class DatabaseHelper {
     );
     if (result.isNotEmpty) return result.first;
     return null;
+  }
+
+  // ================= FUNÇÕES DE EXAMES =================
+  Future<int> inserirExame(Map<String, dynamic> row) async {
+    Database db = await instance.database;
+    return await db.insert('exames', row);
+  }
+
+  Future<List<Map<String, dynamic>>> getExamesPorPaciente(int pacienteId) async {
+    Database db = await instance.database;
+    return await db.query(
+      'exames',
+      where: 'paciente_id = ?',
+      whereArgs: [pacienteId],
+      orderBy: 'data_upload DESC',
+    );
+  }
+
+  Future<int> deletarExame(int id) async {
+    Database db = await instance.database;
+    return await db.delete(
+      'exames',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'database_helper.dart';
-import 'tela_prontuario.dart';
 import 'tela_cadastro_paciente.dart';
 import 'tela_agenda.dart';
+import 'tela_perfil_paciente.dart';
+import 'tela_dashboard.dart'; // <-- Importante: Adicionamos a importação do Dashboard!
 
 void main() {
   runApp(const FisioApp());
@@ -15,18 +16,18 @@ class FisioApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fisio App',
+      title: 'Fisiohub',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const TelaNavegacaoPrincipal(), // Mudamos a tela inicial para cá
+      home: const TelaNavegacaoPrincipal(), 
     );
   }
 }
 
-// === NOVA TELA DE NAVEGAÇÃO COM BARRA INFERIOR ===
+// === TELA DE NAVEGAÇÃO COM BARRA INFERIOR ===
 class TelaNavegacaoPrincipal extends StatefulWidget {
   const TelaNavegacaoPrincipal({super.key});
 
@@ -35,12 +36,13 @@ class TelaNavegacaoPrincipal extends StatefulWidget {
 }
 
 class _TelaNavegacaoPrincipalState extends State<TelaNavegacaoPrincipal> {
-  int _indiceAtual = 0; // 0 = Agenda, 1 = Pacientes
+  int _indiceAtual = 0; // 0 = Início (Dashboard), 1 = Agenda, 2 = Pacientes
 
-  // Telas que serão exibidas
+  // Telas que serão exibidas na barra inferior
   final List<Widget> _telas = [
-    const TelaAgenda(), // Vamos construir de verdade na Etapa 2
-    const TelaPacientes(), // A tela de pacientes que já criamos
+    const TelaDashboard(), // <-- O nosso novo painel inicial!
+    const TelaAgenda(),    
+    const TelaPacientes(), 
   ];
 
   @override
@@ -58,6 +60,10 @@ class _TelaNavegacaoPrincipalState extends State<TelaNavegacaoPrincipal> {
         unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Início',
+          ),
+          BottomNavigationBarItem(
             icon: Icon(Icons.calendar_month),
             label: 'Agenda',
           ),
@@ -71,7 +77,7 @@ class _TelaNavegacaoPrincipalState extends State<TelaNavegacaoPrincipal> {
   }
 }
 
-// === TELA DE PACIENTES (EXATAMENTE COMO VOCÊ JÁ TINHA FEITO) ===
+// === TELA DE PACIENTES ===
 class TelaPacientes extends StatefulWidget {
   const TelaPacientes({super.key});
 
@@ -213,7 +219,7 @@ class _TelaPacientesState extends State<TelaPacientes> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => TelaProntuario(paciente: paciente, isFinalizado: isFinalizado)),
+                  MaterialPageRoute(builder: (context) => TelaPerfilPaciente(paciente: paciente)),
                 ).then((_) => _atualizarLista());
               },
             ),
