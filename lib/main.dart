@@ -1,10 +1,13 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+
 import 'database_helper.dart';
 import 'tela_cadastro_paciente.dart';
 import 'tela_agenda.dart';
 import 'tela_perfil_paciente.dart';
-import 'tela_dashboard.dart'; // <-- Importante: Adicionamos a importação do Dashboard!
+import 'tela_dashboard.dart';
+import 'tela_detalhes_paciente.dart'; // <-- Importante: Adicionámos a importação da nova tela!
 
 void main() {
   runApp(const FisioApp());
@@ -22,7 +25,7 @@ class FisioApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const TelaNavegacaoPrincipal(), 
+      home: const TelaNavegacaoPrincipal(),
     );
   }
 }
@@ -40,9 +43,9 @@ class _TelaNavegacaoPrincipalState extends State<TelaNavegacaoPrincipal> {
 
   // Telas que serão exibidas na barra inferior
   final List<Widget> _telas = [
-    const TelaDashboard(), // <-- O nosso novo painel inicial!
-    const TelaAgenda(),    
-    const TelaPacientes(), 
+    const TelaDashboard(),
+    const TelaAgenda(),
+    const TelaPacientes(),
   ];
 
   @override
@@ -59,18 +62,12 @@ class _TelaNavegacaoPrincipalState extends State<TelaNavegacaoPrincipal> {
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Início',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Início'),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_month),
             label: 'Agenda',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Pacientes',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Pacientes'),
         ],
       ),
     );
@@ -96,41 +93,66 @@ class _TelaPacientesState extends State<TelaPacientes> {
     _atualizarLista();
   }
 
-  void _atualizarLista() async {
+  Future<void> _atualizarLista() async {
     final todosPacientes = await DatabaseHelper.instance.getTodosPacientes();
     final query = _buscaController.text.toLowerCase();
-    
+
+    if (!mounted) return;
     setState(() {
       pacientesTratando = todosPacientes.where((p) {
-        bool matchesSearch = p['nome'].toLowerCase().contains(query) || p['diagnostico'].toLowerCase().contains(query);
+        final nome = (p['nome'] ?? '').toString().toLowerCase();
+        final diagnostico = (p['diagnostico'] ?? '').toString().toLowerCase();
+        final matchesSearch =
+            nome.contains(query) || diagnostico.contains(query);
         return matchesSearch && p['status'] == 'tratando';
       }).toList();
 
       pacientesFinalizados = todosPacientes.where((p) {
-        bool matchesSearch = p['nome'].toLowerCase().contains(query) || p['diagnostico'].toLowerCase().contains(query);
+        final nome = (p['nome'] ?? '').toString().toLowerCase();
+        final diagnostico = (p['diagnostico'] ?? '').toString().toLowerCase();
+        final matchesSearch =
+            nome.contains(query) || diagnostico.contains(query);
         return matchesSearch && p['status'] == 'finalizado';
       }).toList();
     });
   }
 
+  @override
+  void dispose() {
+    _buscaController.dispose();
+    super.dispose();
+  }
+
   void _abrirCadastro({Map<String, dynamic>? paciente}) async {
     final resultado = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => TelaCadastroPaciente(pacienteExistente: paciente)),
+      MaterialPageRoute(
+        builder: (context) => TelaCadastroPaciente(pacienteExistente: paciente),
+      ),
     );
     if (resultado == true) _atualizarLista();
   }
 
   Widget _construirLista(List<Map<String, dynamic>> lista, bool isFinalizado) {
     if (lista.isEmpty) {
-      return Center(child: Text(isFinalizado ? 'Nenhum paciente finalizado.' : 'Nenhum paciente em tratamento.', style: const TextStyle(fontSize: 16)));
+      return Center(
+        child: Text(
+          isFinalizado
+              ? 'Nenhum paciente finalizado.'
+              : 'Nenhum paciente em tratamento.',
+          style: const TextStyle(fontSize: 16),
+        ),
+      );
     }
 
     return ListView.builder(
       itemCount: lista.length,
       itemBuilder: (context, index) {
         final paciente = lista[index];
-        final bool temFoto = paciente['foto'] != null && paciente['foto'].toString().isNotEmpty;
+        final nome = (paciente['nome'] ?? '').toString();
+        final diagnostico = (paciente['diagnostico'] ?? '').toString();
+        final bool temFoto =
+            paciente['foto'] != null && paciente['foto'].toString().isNotEmpty;
 
         return Dismissible(
           key: Key(paciente['id'].toString()),
@@ -139,7 +161,11 @@ class _TelaPacientesState extends State<TelaPacientes> {
             color: isFinalizado ? Colors.blue : Colors.green,
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Icon(isFinalizado ? Icons.replay : Icons.check_circle, color: Colors.white, size: 30),
+            child: Icon(
+              isFinalizado ? Icons.replay : Icons.check_circle,
+              color: Colors.white,
+              size: 30,
+            ),
           ),
           secondaryBackground: Container(
             color: Colors.red,
@@ -153,35 +179,60 @@ class _TelaPacientesState extends State<TelaPacientes> {
                 context: context,
                 builder: (context) => AlertDialog(
                   title: const Text('Confirmar Exclusão'),
-                  content: Text('Excluir ${paciente['nome']} e todo o histórico?'),
+                  content: Text('Excluir $nome e todo o histórico?'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                    TextButton(onPressed: () => Navigator.pop(context, true), style: TextButton.styleFrom(foregroundColor: Colors.red), child: const Text('Excluir')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancelar'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('Excluir'),
+                    ),
                   ],
                 ),
               );
             } else if (direction == DismissDirection.startToEnd) {
-              bool confirmar = await showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: Text(isFinalizado ? 'Retomar Tratamento' : 'Finalizar Tratamento'),
-                  content: Text(isFinalizado 
-                      ? 'Deseja voltar ${paciente['nome']} para a lista de Tratando?' 
-                      : 'Deseja dar alta para ${paciente['nome']}? O prontuário será bloqueado para edições.'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true), 
-                      style: TextButton.styleFrom(foregroundColor: isFinalizado ? Colors.blue : Colors.green), 
-                      child: Text(isFinalizado ? 'Retomar' : 'Finalizar')
+              bool confirmar =
+                  await showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text(
+                        isFinalizado
+                            ? 'Retomar Tratamento'
+                            : 'Finalizar Tratamento',
+                      ),
+                      content: Text(
+                        isFinalizado
+                            ? 'Deseja voltar $nome para a lista de Tratando?'
+                            : 'Deseja dar alta para $nome? O prontuário será bloqueado para edições.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancelar'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: TextButton.styleFrom(
+                            foregroundColor: isFinalizado
+                                ? Colors.blue
+                                : Colors.green,
+                          ),
+                          child: Text(isFinalizado ? 'Retomar' : 'Finalizar'),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ) ?? false;
+                  ) ??
+                  false;
 
               if (confirmar) {
                 String novoStatus = isFinalizado ? 'tratando' : 'finalizado';
-                await DatabaseHelper.instance.atualizarStatusPaciente(paciente['id'], novoStatus);
+                await DatabaseHelper.instance.atualizarStatusPaciente(
+                  paciente['id'],
+                  novoStatus,
+                );
                 return true;
               }
               return false;
@@ -199,27 +250,60 @@ class _TelaPacientesState extends State<TelaPacientes> {
             color: isFinalizado ? Colors.grey.shade200 : Colors.white,
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: isFinalizado ? Colors.grey.shade400 : Theme.of(context).colorScheme.primaryContainer,
-                backgroundImage: temFoto ? FileImage(File(paciente['foto'])) : null,
-                child: !temFoto ? Text(paciente['nome'][0].toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)) : null,
+                backgroundColor: isFinalizado
+                    ? Colors.grey.shade400
+                    : Theme.of(context).colorScheme.primaryContainer,
+                backgroundImage: temFoto
+                    ? FileImage(File(paciente['foto']))
+                    : null,
+                child: !temFoto && nome.isNotEmpty
+                    ? Text(
+                        nome[0].toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      )
+                    : null,
               ),
-              title: Text(paciente['nome'], style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(paciente['diagnostico']),
+              title: Text(
+                nome,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(diagnostico),
+
+              // --- AQUI ESTÁ A ALTERAÇÃO DO BOTÃO ---
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (!isFinalizado) 
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.grey),
-                      onPressed: () => _abrirCadastro(paciente: paciente),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.remove_red_eye_outlined,
+                      color: Colors.teal,
                     ),
+                    tooltip: 'Ver Ficha do Paciente',
+                    onPressed: () {
+                      // Abre a nova tela de detalhes (modo leitura)
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              TelaDetalhesPaciente(paciente: paciente),
+                        ),
+                      ).then((atualizou) {
+                        // Se a pessoa tiver editado lá dentro e voltado, atualizamos a lista
+                        if (atualizou == true) _atualizarLista();
+                      });
+                    },
+                  ),
                   const Icon(Icons.arrow_forward_ios, size: 16),
                 ],
               ),
+
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => TelaPerfilPaciente(paciente: paciente)),
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        TelaPerfilPaciente(paciente: paciente),
+                  ),
                 ).then((_) => _atualizarLista());
               },
             ),
@@ -258,7 +342,9 @@ class _TelaPacientesState extends State<TelaPacientes> {
                 decoration: InputDecoration(
                   labelText: 'Pesquisar paciente...',
                   prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15.0)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15.0),
+                  ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 ),
               ),
