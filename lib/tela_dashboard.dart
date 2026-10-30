@@ -182,8 +182,8 @@ class _TelaDashboardState extends State<TelaDashboard> {
                       icon: const Icon(Icons.play_arrow, size: 20),
                       label: const Text('Iniciar Atendimento', style: TextStyle(fontSize: 15)),
                       onPressed: () async {
-                        // Navega para a evolução e atualiza a lista ao voltar
-                        await Navigator.push(
+                        // 1. Navega para a evolução e aguarda o resultado
+                        final resultado = await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) => TelaCadastroEvolucao(
@@ -195,6 +195,18 @@ class _TelaDashboardState extends State<TelaDashboard> {
                             ),
                           ),
                         );
+                        
+                        // 2. Verifica se o atendimento foi realmente salvo
+                        // Assumindo que a TelaCadastroEvolucao retorna 'true' quando salva com sucesso
+                        if (resultado == true) {
+                          // 3. Atualiza o status do agendamento para 'concluido' no banco de dados
+                          await DatabaseHelper.instance.atualizarStatusAgendamento(
+                            agendamento['id'], 
+                            'concluido'
+                          );
+                        }
+                        
+                        // 4. Recarrega as estatísticas e a lista do dashboard
                         _carregarEstatisticas();
                       },
                     ),
